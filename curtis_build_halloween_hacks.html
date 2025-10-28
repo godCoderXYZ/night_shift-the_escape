@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Night Shift: The Escape</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            cursor: none;
+        }
+
+        #ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            border: 1px solid #333;
+        }
+
+        #inventory {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #333;
+            max-width: 300px;
+        }
+
+        #inventory h3 {
+            margin-bottom: 10px;
+            color: #5D5CDE;
+            font-size: 16px;
+        }
+
+        .item {
+            display: inline-block;
+            background: rgba(93, 92, 222, 0.3);
+            padding: 5px 10px;
+            margin: 5px 5px 5px 0;
+            border-radius: 3px;
+            font-size: 12px;
+            border: 1px solid #5D5CDE;
+        }
+
+        #objective {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #333;
+            max-width: 250px;
+            font-size: 14px;
+        }
+
+        #objective h3 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        #interaction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px 30px;
+            border-radius: 5px;
+            border: 2px solid #5D5CDE;
+            font-size: 16px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: all;
+        }
+
+        #interaction.visible {
+            opacity: 1;
+        }
+
+        #interaction button {
+            background: #5D5CDE;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 5px 0;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+
+        #interaction button:hover {
+            background: #7776e8;
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #000000 0%, #1a0000 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        #startScreen.hidden {
+            display: none;
+        }
+
+        #startScreen h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #ff6b6b;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+        }
+
+        #startScreen p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #aaa;
+        }
+
+        #startScreen button {
+            background: #5D5CDE;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+
+        #startScreen button:hover {
+            background: #7776e8;
+            transform: scale(1.05);
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+        }
+
+        #message {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px 30px;
+            border-radius: 5px;
+            border: 1px solid #ff6b6b;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 80%;
+            text-align: center;
+        }
+
+        #message.visible {
+            opacity: 1;
+        }
+
+        .flashlight-indicator {
+            display: inline-block;
+            width: 100px;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .flashlight-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            transition: width 0.3s;
+        }
+
+        #endScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        #endScreen.visible {
+            display: flex;
+        }
+
+        #endScreen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #5D5CDE;
+        }
+
+        #endScreen p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #aaa;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        #endScreen button {
+            background: #5D5CDE;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+
+        #endScreen button:hover {
+            background: #7776e8;
+        }
+
+        @media (max-width: 768px) {
+            #hud, #inventory, #objective {
+                font-size: 12px;
+                padding: 10px;
+            }
+
+            #startScreen h1 {
+                font-size: 32px;
+            }
+
+            #controls {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div id="startScreen">
+        <h1>NIGHT SHIFT: THE ESCAPE</h1>
+        <p>A Survival Horror Experience</p>
+        <button id="startBtn">START GAME</button>
+        <div id="controls">
+            <p><strong>CONTROLS:</strong></p>
+            <p>WASD - Move | Mouse/Arrow Keys - Look | SHIFT - Crouch | F - Flashlight | E - Interact</p>
+            <p>Click to lock mouse pointer</p>
+        </div>
+    </div>
+
+    <!-- End Screen -->
+    <div id="endScreen">
+        <h1 id="endTitle">GAME OVER</h1>
+        <p id="endMessage"></p>
+        <button id="restartBtn">PLAY AGAIN</button>
+    </div>
+
+    <div id="ui">
+
+        <!-- HUD -->
+        <div id="hud">
+            <div><strong>HEALTH:</strong> <span id="health">100</span>%</div>
+            <div>
+                <strong>FLASHLIGHT:</strong>
+                <span class="flashlight-indicator">
+                    <span class="flashlight-bar" id="flashlightBar"></span>
+                </span>
+                <span id="flashlightStatus" style="margin-left: 10px;"></span>
+            </div>
+            <div><strong>STATUS:</strong> <span id="status">Normal</span></div>
+        </div>
+
+        <!-- Inventory -->
+        <div id="inventory">
+            <h3>INVENTORY</h3>
+            <div id="items"></div>
+        </div>
+
+        <!-- Objective -->
+        <div id="objective">
+            <h3>OBJECTIVE</h3>
+            <p id="objectiveText">Find a way to escape the store.</p>
+        </div>
+
+        <!-- Crosshair -->
+        <div id="crosshair"></div>
+
+        <!-- Interaction Prompt -->
+        <div id="interaction">
+            <p id="interactionText"></p>
+            <div id="interactionButtons"></div>
+        </div>
+
+        <!-- Message -->
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Game State
+        const gameState = {
+            health: 100,
+            flashlightOn: false,
+            flashlightCooldown: 0,
+            flashlightMaxCooldown: 5, // 5 seconds cooldown
+            flashlightDuration: 10, // 10 seconds on time
+            flashlightTimeRemaining: 10,
+            inventory: [],
+            objectives: [],
+            isCrouching: false,
+            isHiding: false,
+            gameStarted: false,
+            gameEnded: false,
+            notesRead: 0,
+            antagonistActive: false,
+            keysCollected: 0,
+            codeDigits: [], // Collected code digits
+            storageCode: '4827' // The correct code to unlock storage
+        };
+
+        // Three.js Setup
+        let scene, camera, renderer, controls;
+        let player, antagonist;
+        let objects = [];
+        let interactables = [];
+        let walls = [];
+        let hidingSpots = [];
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let lookLeft = false, lookRight = false, lookUp = false, lookDown = false;
+        let prevTime = performance.now();
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let flashlight;
+        let ambientLight;
+
+        // Initialize Three.js
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 1, 50);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.7, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+            renderer.domElement.id = 'gameCanvas';
+
+            // Lights
+            ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambientLight);
+
+            // Flashlight (spot light attached to camera)
+            flashlight = new THREE.SpotLight(0xffffff, 0, 20, Math.PI / 6, 0.5, 2);
+            flashlight.position.copy(camera.position);
+            flashlight.target.position.set(0, 0, -1);
+            scene.add(flashlight);
+            scene.add(flashlight.target);
+
+            // Flickering overhead lights
+            createOverheadLights();
+
+            // Create Environment
+            createStore();
+            createAntagonist();
+
+            // Event Listeners
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('click', onClick);
+            window.addEventListener('resize', onWindowResize);
+
+            // Pointer Lock
+            renderer.domElement.addEventListener('click', () => {
+                if (gameState.gameStarted && !gameState.gameEnded) {
+                    renderer.domElement.requestPointerLock();
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === renderer.domElement) {
+                    document.addEventListener('mousemove', onMouseMove);
+                } else {
+                    document.removeEventListener('mousemove', onMouseMove);
+                }
+            });
+
+            // Start Button
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+            // Start Animation Loop
+            animate();
+        }
+
+        function createOverheadLights() {
+            const lightPositions = [
+                [0, 5, -5], [0, 5, 5], [10, 5, 0], [-10, 5, 0],
+                [10, 5, -10], [-10, 5, -10], [10, 5, 10], [-10, 5, 10],
+                [5, 5, -15], [-5, 5, -15], [5, 5, 15], [-5, 5, 15],
+                [15, 5, -5], [15, 5, 5], [-15, 5, -5], [-15, 5, 5]
+            ];
+
+            lightPositions.forEach((pos, index) => {
+                // Create light
+                const light = new THREE.PointLight(0xffffcc, 0.6, 18);
+                light.position.set(pos[0], pos[1], pos[2]);
+                light.castShadow = true;
+                light.shadow.mapSize.width = 512;
+                light.shadow.mapSize.height = 512;
+                scene.add(light);
+
+                // Flickering effect - some lights flicker more than others
+                light.userData.baseIntensity = 0.6;
+                light.userData.flickerSpeed = Math.random() * 0.03 + 0.01;
+                light.userData.flickerAmount = Math.random() * 0.3 + 0.1;
+
+                // Create light fixture
+                const fixtureGeo = new THREE.BoxGeometry(1, 0.2, 1);
+                const fixtureMat = new THREE.MeshStandardMaterial({
+                    color: 0x333333,
+                    roughness: 0.7,
+                    emissive: 0x222222,
+                    emissiveIntensity: 0.3
+                });
+                const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+                fixture.position.set(pos[0], pos[1] + 0.7, pos[2]);
+                scene.add(fixture);
+
+                // Add glowing bulb inside
+                const bulbGeo = new THREE.SphereGeometry(0.3, 8, 8);
+                const bulbMat = new THREE.MeshStandardMaterial({
+                    color: 0xffffcc,
+                    emissive: 0xffffaa,
+                    emissiveIntensity: 1
+                });
+                const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+                bulb.position.set(pos[0], pos[1] + 0.5, pos[2]);
+                scene.add(bulb);
+            });
+
+            // Add some colored accent lights for atmosphere
+            const redLight = new THREE.PointLight(0xff3333, 0.3, 10);
+            redLight.position.set(-18, 2, -18);
+            scene.add(redLight);
+
+            const greenLight = new THREE.PointLight(0x33ff33, 0.2, 8);
+            greenLight.position.set(18, 2, 18);
+            scene.add(greenLight);
+        }
+
+        function createStore() {
+            // Floor - Checkered tile pattern (LARGER STORE - 80x80)
+            const floorGeometry = new THREE.PlaneGeometry(80, 80, 40, 40);
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x3a3a3a,
+                roughness: 0.6,
+                metalness: 0.1
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Add checkered pattern with darker tiles
+            for (let i = 0; i < 40; i++) {
+                for (let j = 0; j < 40; j++) {
+                    if ((i + j) % 2 === 0) {
+                        const tileGeo = new THREE.PlaneGeometry(2, 2);
+                        const tileMat = new THREE.MeshStandardMaterial({
+                            color: 0x252525,
+                            roughness: 0.7
+                        });
+                        const tile = new THREE.Mesh(tileGeo, tileMat);
+                        tile.rotation.x = -Math.PI / 2;
+                        tile.position.set(-39 + i * 2, 0.01, -39 + j * 2);
+                        tile.receiveShadow = true;
+                        scene.add(tile);
+                    }
+                }
+            }
+
+            // Ceiling with panels
+            const ceilingGeometry = new THREE.PlaneGeometry(80, 80, 40, 40);
+            const ceilingMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                roughness: 0.9
+            });
+            const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = 6;
+            scene.add(ceiling);
+
+            // Add ceiling panels for detail
+            for (let i = -7; i <= 7; i++) {
+                for (let j = -7; j <= 7; j++) {
+                    const panelGeo = new THREE.PlaneGeometry(4.5, 4.5);
+                    const panelMat = new THREE.MeshStandardMaterial({
+                        color: 0x2a2a2a,
+                        roughness: 0.8
+                    });
+                    const panel = new THREE.Mesh(panelGeo, panelMat);
+                    panel.rotation.x = Math.PI / 2;
+                    panel.position.set(i * 5, 5.95, j * 5);
+                    scene.add(panel);
+                }
+            }
+
+            // Walls
+            createWalls();
+
+            // Shelves and Aisles
+            createShelves();
+
+            // Cashier Counter
+            createCounter();
+
+            // Storage Room
+            createStorageRoom();
+
+            // Break Room
+            createBreakRoom();
+
+            // Items to collect
+            createCollectibles();
+
+            // Hiding spots
+            createHidingSpots();
+
+            // Environmental details
+            createEnvironmentalDetails();
+
+            // Floor arrows to guide players
+            createFloorArrows();
+        }
+
+        function createFloorArrows() {
+            // Create arrow shape (triangle)
+            const arrowShape = new THREE.Shape();
+            arrowShape.moveTo(0, 0.5);
+            arrowShape.lineTo(-0.3, -0.5);
+            arrowShape.lineTo(0.3, -0.5);
+            arrowShape.lineTo(0, 0.5);
+
+            const arrowGeo = new THREE.ShapeGeometry(arrowShape);
+
+            // YELLOW ARROWS to code notes
+            const yellowMat = new THREE.MeshStandardMaterial({
+                color: 0xffff00,
+                emissive: 0xffff00,
+                emissiveIntensity: 0.3,
+                side: THREE.DoubleSide
+            });
+
+            // Arrows to Note 1 (at 25, 15) - from spawn
+            createArrowPath([[0, 0], [10, 5], [18, 10], [25, 15]], yellowMat, arrowGeo);
+
+            // Arrows to Note 2 (at -20, 5) - from spawn
+            createArrowPath([[0, 0], [-10, 2], [-15, 3], [-20, 5]], yellowMat, arrowGeo);
+
+            // Arrows to Note 3 (at 10, -25) - from spawn
+            createArrowPath([[0, 0], [5, -10], [8, -18], [10, -25]], yellowMat, arrowGeo);
+
+            // Arrows to Note 4 (at -35, -15) - from spawn
+            createArrowPath([[0, 0], [-15, -5], [-25, -10], [-30, -12], [-35, -15]], yellowMat, arrowGeo);
+
+            // RED ARROWS to exit door (at 20, 39.75)
+            const redMat = new THREE.MeshStandardMaterial({
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 0.5,
+                side: THREE.DoubleSide
+            });
+
+            // Arrows from storage area to exit
+            createArrowPath([[-25, -30], [-10, -15], [0, 0], [10, 15], [15, 25], [18, 32], [20, 38]], redMat, arrowGeo);
+
+            // Additional red arrows from other areas
+            createArrowPath([[30, 20], [25, 25], [22, 30], [20, 35]], redMat, arrowGeo);
+            createArrowPath([[-30, 20], [-15, 25], [-5, 30], [5, 33], [12, 36], [18, 38]], redMat, arrowGeo);
+        }
+
+        function createArrowPath(points, material, geometry) {
+            for (let i = 0; i < points.length - 1; i++) {
+                const [x1, z1] = points[i];
+                const [x2, z2] = points[i + 1];
+
+                // Calculate direction
+                const dx = x2 - x1;
+                const dz = z2 - z1;
+                const angle = Math.atan2(dx, dz);
+
+                // Create arrow
+                const arrow = new THREE.Mesh(geometry, material);
+                arrow.position.set(x1, 0.05, z1); // Slightly above floor
+                arrow.rotation.x = -Math.PI / 2; // Lay flat on floor
+                arrow.rotation.z = -angle; // Point in direction
+                scene.add(arrow);
+            }
+        }
+
+        function createEnvironmentalDetails() {
+            // Store sign on north wall
+            const signGeo = new THREE.PlaneGeometry(6, 1.5);
+            const signMat = new THREE.MeshStandardMaterial({
+                color: 0xff3333,
+                emissive: 0x330000,
+                emissiveIntensity: 0.5,
+                roughness: 0.5
+            });
+            const sign = new THREE.Mesh(signGeo, signMat);
+            sign.position.set(0, 4.5, -19.3);
+            scene.add(sign);
+
+            // Store sign text
+            const textGeo = new THREE.PlaneGeometry(5, 1);
+            const textMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                emissive: 0xffffff,
+                emissiveIntensity: 0.8
+            });
+            const signText = new THREE.Mesh(textGeo, textMat);
+            signText.position.set(0, 4.5, -19.2);
+            scene.add(signText);
+
+            // "EXIT" sign above exit door
+            const exitSignGeo = new THREE.PlaneGeometry(1.5, 0.5);
+            const exitSignMat = new THREE.MeshStandardMaterial({
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 1
+            });
+            const exitSign = new THREE.Mesh(exitSignGeo, exitSignMat);
+            exitSign.position.set(10, 4.5, 19.3);
+            scene.add(exitSign);
+
+            // Add EXIT light
+            const exitLight = new THREE.PointLight(0x00ff00, 0.5, 5);
+            exitLight.position.set(10, 4.5, 19);
+            scene.add(exitLight);
+
+            // Posters on walls
+            const posterPositions = [
+                { x: -15, y: 3, z: -19.3, rot: 0 },
+                { x: 15, y: 3, z: -19.3, rot: 0 },
+                { x: 19.3, y: 3, z: -10, rot: Math.PI / 2 },
+                { x: 19.3, y: 3, z: 10, rot: Math.PI / 2 }
+            ];
+
+            posterPositions.forEach(pos => {
+                const posterGeo = new THREE.PlaneGeometry(1, 1.5);
+                const posterMat = new THREE.MeshStandardMaterial({
+                    color: [0xffaa00, 0xff6b6b, 0x4ecdc4, 0xaa96da][Math.floor(Math.random() * 4)],
+                    roughness: 0.7
+                });
+                const poster = new THREE.Mesh(posterGeo, posterMat);
+                poster.position.set(pos.x, pos.y, pos.z);
+                poster.rotation.y = pos.rot;
+                scene.add(poster);
+            });
+
+            // Vending machine in corner
+            const vendingGeo = new THREE.BoxGeometry(1.5, 2.5, 1);
+            const vendingMat = new THREE.MeshStandardMaterial({
+                color: 0x1a472a,
+                roughness: 0.4,
+                metalness: 0.6
+            });
+            const vending = new THREE.Mesh(vendingGeo, vendingMat);
+            vending.position.set(17, 1.25, -17);
+            vending.castShadow = true;
+            scene.add(vending);
+
+            // Vending machine glass
+            const glassGeo = new THREE.PlaneGeometry(1.2, 1.8);
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x88ccff,
+                transparent: true,
+                opacity: 0.3,
+                roughness: 0.1
+            });
+            const glass = new THREE.Mesh(glassGeo, glassMat);
+            glass.position.set(17, 1.5, -16.4);
+            scene.add(glass);
+
+            // Vending light
+            const vendingLight = new THREE.PointLight(0x4444ff, 0.4, 5);
+            vendingLight.position.set(17, 2, -16.5);
+            scene.add(vendingLight);
+
+            // Trash can
+            const trashGeo = new THREE.CylinderGeometry(0.4, 0.5, 1, 8);
+            const trashMat = new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                roughness: 0.8
+            });
+            const trash = new THREE.Mesh(trashGeo, trashMat);
+            trash.position.set(-17, 0.5, 17);
+            trash.castShadow = true;
+            scene.add(trash);
+        }
+
+        function createWalls() {
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4a4a4a,
+                roughness: 0.8,
+                metalness: 0.05
+            });
+
+            // North wall (LARGER - 80 units)
+            const northWall = createWall(80, 6, 0.5, 0, 3, -40, wallMaterial);
+
+            // Add wall panels for detail
+            for (let i = -8; i <= 8; i++) {
+                const panelGeo = new THREE.BoxGeometry(4, 5.5, 0.3);
+                const panelMat = new THREE.MeshStandardMaterial({
+                    color: 0x3a3a3a,
+                    roughness: 0.7
+                });
+                const panel = new THREE.Mesh(panelGeo, panelMat);
+                panel.position.set(i * 4.5, 3, -39.6);
+                panel.receiveShadow = true;
+                scene.add(panel);
+            }
+
+            // South wall
+            const southWall = createWall(80, 6, 0.5, 0, 3, 40, wallMaterial);
+
+            // East wall
+            const eastWall = createWall(0.5, 6, 80, 40, 3, 0, wallMaterial);
+
+            // West wall
+            const westWall = createWall(0.5, 6, 80, -40, 3, 0, wallMaterial);
+
+            // Add door in south wall (exit)
+            const doorGeometry = new THREE.BoxGeometry(2, 4, 0.5);
+            const doorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8B4513,
+                roughness: 0.6
+            });
+            const exitDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+            exitDoor.position.set(20, 2, 39.75);
+            exitDoor.castShadow = true;
+            exitDoor.userData = {
+                type: 'door',
+                locked: true,
+                name: 'Exit Door',
+                requiredKey: 'Exit Key'
+            };
+            scene.add(exitDoor);
+            interactables.push(exitDoor);
+            walls.push(exitDoor);
+        }
+
+        function createWall(width, height, depth, x, y, z, material) {
+            const geometry = new THREE.BoxGeometry(width, height, depth);
+            const wall = new THREE.Mesh(geometry, material);
+            wall.position.set(x, y, z);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            scene.add(wall);
+            walls.push(wall);
+            return wall;
+        }
+
+        function createShelves() {
+            const shelfMaterial = new THREE.MeshStandardMaterial({
+                color: 0x654321,
+                roughness: 0.5,
+                metalness: 0.1
+            });
+
+            const productColors = [0xff6b6b, 0x4ecdc4, 0xffe66d, 0x95e1d3, 0xf38181, 0xaa96da, 0xfcbad3];
+
+            // Create multiple aisles (MORE AISLES for larger store)
+            for (let i = -6; i <= 6; i++) {
+                if (i === 0) continue; // Leave center aisle clear
+
+                const shelf1 = createShelf(1, 2.5, 15, i * 5, 1.25, -10, shelfMaterial);
+                const shelf2 = createShelf(1, 2.5, 15, i * 5, 1.25, 10, shelfMaterial);
+
+                // Add products on shelves
+                addProductsToShelf(i * 5, -10, productColors);
+                addProductsToShelf(i * 5, 10, productColors);
+            }
+
+            // Add more shelves in different sections
+            for (let i = -3; i <= 3; i++) {
+                const shelf3 = createShelf(1, 2.5, 10, i * 5, 1.25, -30, shelfMaterial);
+                addProductsToShelf(i * 5, -30, productColors);
+            }
+        }
+
+        function addProductsToShelf(x, z, colors) {
+            // Add random products on shelf
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 8; col++) {
+                    if (Math.random() > 0.3) {
+                        const productType = Math.floor(Math.random() * 3);
+                        let product;
+
+                        if (productType === 0) {
+                            // Box
+                            const boxGeo = new THREE.BoxGeometry(0.3, 0.4, 0.2);
+                            const boxMat = new THREE.MeshStandardMaterial({
+                                color: colors[Math.floor(Math.random() * colors.length)],
+                                roughness: 0.6
+                            });
+                            product = new THREE.Mesh(boxGeo, boxMat);
+                        } else if (productType === 1) {
+                            // Can
+                            const canGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.35, 12);
+                            const canMat = new THREE.MeshStandardMaterial({
+                                color: colors[Math.floor(Math.random() * colors.length)],
+                                roughness: 0.3,
+                                metalness: 0.5
+                            });
+                            product = new THREE.Mesh(canGeo, canMat);
+                        } else {
+                            // Bottle
+                            const bottleGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.45, 8);
+                            const bottleMat = new THREE.MeshStandardMaterial({
+                                color: colors[Math.floor(Math.random() * colors.length)],
+                                roughness: 0.2,
+                                metalness: 0.1,
+                                transparent: true,
+                                opacity: 0.8
+                            });
+                            product = new THREE.Mesh(bottleGeo, bottleMat);
+                        }
+
+                        product.position.set(
+                            x + (Math.random() - 0.5) * 0.3,
+                            0.5 + row * 0.8,
+                            z + (col - 4) * 1.2
+                        );
+                        product.castShadow = true;
+                        scene.add(product);
+                    }
+                }
+            }
+        }
+
+        function createShelf(width, height, depth, x, y, z, material) {
+            const geometry = new THREE.BoxGeometry(width, height, depth);
+            const shelf = new THREE.Mesh(geometry, material);
+            shelf.position.set(x, y, z);
+            shelf.castShadow = true;
+            shelf.receiveShadow = true;
+            scene.add(shelf);
+            walls.push(shelf);
+            return shelf;
+        }
+
+        function createCounter() {
+            const counterMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8B7355,
+                roughness: 0.6
+            });
+
+            const counter = createShelf(8, 1.5, 2, -15, 0.75, -15, counterMaterial);
+
+            // Add a note on the counter
+            const noteGeometry = new THREE.PlaneGeometry(0.3, 0.4);
+            const noteMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffffee,
+                roughness: 0.8
+            });
+            const note = new THREE.Mesh(noteGeometry, noteMaterial);
+            note.position.set(-15, 1.6, -15);
+            note.rotation.x = -Math.PI / 2;
+            note.userData = {
+                type: 'note',
+                name: 'Employee Schedule',
+                content: 'Night shift log: Strange noises from storage room. Equipment keeps moving. Last employee quit without notice. If you\'re reading this... get out while you can.'
+            };
+            scene.add(note);
+            interactables.push(note);
+        }
+
+        function createStorageRoom() {
+            // Storage room walls (back left corner - LARGER)
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a,
+                roughness: 0.8
+            });
+
+            // Storage room is in the northwest corner
+            createWall(15, 6, 0.5, -27.5, 3, -32.5, wallMaterial); // Front wall
+            createWall(0.5, 6, 15, -20, 3, -25, wallMaterial); // Right wall
+
+            // Door to storage room with CODE LOCK
+            const doorGeometry = new THREE.BoxGeometry(2, 4, 0.5);
+            const doorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x654321,
+                roughness: 0.6
+            });
+            const storageDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+            storageDoor.position.set(-25, 2, -32.25);
+            storageDoor.castShadow = true;
+            storageDoor.userData = {
+                type: 'codedoor',
+                locked: true,
+                name: 'Storage Room Door',
+                requiresCode: true
+            };
+            scene.add(storageDoor);
+            interactables.push(storageDoor);
+            walls.push(storageDoor);
+
+            // Add keypad next to door
+            const keypadGeo = new THREE.BoxGeometry(0.5, 0.7, 0.1);
+            const keypadMat = new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                roughness: 0.4,
+                emissive: 0x001100,
+                emissiveIntensity: 0.5
+            });
+            const keypad = new THREE.Mesh(keypadGeo, keypadMat);
+            keypad.position.set(-23.5, 2, -32.2);
+            keypad.userData = {
+                type: 'keypad',
+                name: 'Storage Door Keypad'
+            };
+            scene.add(keypad);
+            interactables.push(keypad);
+
+            // Add boxes in storage room
+            const boxMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8B7355,
+                roughness: 0.7
+            });
+
+            const box1 = createShelf(2, 2, 2, -30, 1, -28, boxMaterial);
+            const box2 = createShelf(2, 2, 2, -26, 1, -35, boxMaterial);
+            const box3 = createShelf(2, 2, 2, -32, 1, -35, boxMaterial);
+
+            // Exit Key in storage room - HIDDEN BETTER
+            const keyGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8);
+            const keyMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFD700,
+                emissive: 0xFFD700,
+                emissiveIntensity: 0.5
+            });
+            const exitKey = new THREE.Mesh(keyGeometry, keyMaterial);
+            exitKey.position.set(-32, 2.2, -35); // Hidden behind boxes
+            exitKey.userData = {
+                type: 'item',
+                name: 'Exit Key',
+                description: 'A brass key labeled "EXIT". This might unlock the front door!'
+            };
+            scene.add(exitKey);
+            interactables.push(exitKey);
+        }
+
+        function createBreakRoom() {
+            // Break room in southeast corner
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a,
+                roughness: 0.8
+            });
+
+            createWall(10, 6, 0.5, 15, 3, 15, wallMaterial); // Front wall
+            createWall(0.5, 6, 10, 10, 3, 10, wallMaterial); // Left wall
+
+            // Door to break room (unlocked)
+            const doorGeometry = new THREE.BoxGeometry(2, 4, 0.5);
+            const doorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x654321,
+                roughness: 0.6
+            });
+            const breakDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+            breakDoor.position.set(13, 2, 14.75);
+            breakDoor.castShadow = true;
+            breakDoor.userData = {
+                type: 'door',
+                locked: false,
+                name: 'Break Room Door',
+                isOpen: false
+            };
+            scene.add(breakDoor);
+            interactables.push(breakDoor);
+
+            // Table in break room
+            const tableMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8B7355,
+                roughness: 0.6
+            });
+            const table = createShelf(3, 0.2, 2, 14, 1, 12, tableMaterial);
+
+            // Note on table
+            const noteGeometry = new THREE.PlaneGeometry(0.3, 0.4);
+            const noteMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffffee,
+                roughness: 0.8
+            });
+            const note = new THREE.Mesh(noteGeometry, noteMaterial);
+            note.position.set(14, 1.3, 12);
+            note.rotation.x = -Math.PI / 2;
+            note.userData = {
+                type: 'note',
+                name: 'Manager\'s Note',
+                content: 'To all staff: Do NOT enter the storage room after 10 PM. If you hear footsteps, hide immediately. Storage key is kept there for emergencies only.'
+            };
+            scene.add(note);
+            interactables.push(note);
+        }
+
+        function createCollectibles() {
+            // CODE NOTES scattered around (code is 4827)
+            const noteGeo = new THREE.PlaneGeometry(0.3, 0.4);
+            const noteMat = new THREE.MeshStandardMaterial({
+                color: 0xffffee,
+                roughness: 0.8
+            });
+
+            // Note 1 - First digit (4)
+            const note1 = new THREE.Mesh(noteGeo, noteMat);
+            note1.position.set(25, 0.5, 15);
+            note1.rotation.x = -Math.PI / 2;
+            note1.userData = {
+                type: 'codenote',
+                name: 'Security Note #1',
+                content: 'Security Code - First Digit: 4\n\nKeep this confidential. Manager use only.',
+                digit: '4',
+                digitIndex: 0
+            };
+            scene.add(note1);
+            interactables.push(note1);
+
+            // Note 2 - Second digit (8)
+            const note2 = new THREE.Mesh(noteGeo, noteMat);
+            note2.position.set(-20, 1.5, 5);
+            note2.rotation.y = Math.PI / 2;
+            note2.userData = {
+                type: 'codenote',
+                name: 'Inventory Sheet',
+                content: 'Storage access code second digit: 8\n\nReminder: Check stock weekly.',
+                digit: '8',
+                digitIndex: 1
+            };
+            scene.add(note2);
+            interactables.push(note2);
+
+            // Note 3 - Third digit (2)
+            const note3 = new THREE.Mesh(noteGeo, noteMat);
+            note3.position.set(10, 0.5, -25);
+            note3.rotation.x = -Math.PI / 2;
+            note3.userData = {
+                type: 'codenote',
+                name: 'Maintenance Log',
+                content: 'Door code 3rd number = 2\n\nLight fixtures need replacement in back.',
+                digit: '2',
+                digitIndex: 2
+            };
+            scene.add(note3);
+            interactables.push(note3);
+
+            // Note 4 - Fourth digit (7)
+            const note4 = new THREE.Mesh(noteGeo, noteMat);
+            note4.position.set(-35, 1.5, -15);
+            note4.rotation.y = Math.PI / 2;
+            note4.userData = {
+                type: 'codenote',
+                name: 'Schedule Notice',
+                content: 'Final code digit is 7. Don\'t forget!\n\nNew shipment arrives Thursday.',
+                digit: '7',
+                digitIndex: 3
+            };
+            scene.add(note4);
+            interactables.push(note4);
+
+        }
+
+        function createHidingSpots() {
+            // Behind shelves
+            const spot1 = { x: -8, z: -5, radius: 2 };
+            const spot2 = { x: 8, z: 5, radius: 2 };
+            const spot3 = { x: -8, z: 5, radius: 2 };
+
+            hidingSpots.push(spot1, spot2, spot3);
+        }
+
+        function createAntagonist() {
+            // Create a detailed antagonist (menacing figure)
+            antagonist = new THREE.Group();
+
+            // Body (darker, more menacing, TRANSPARENT)
+            const bodyGeometry = new THREE.CylinderGeometry(0.35, 0.45, 1.5, 16);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a0000,
+                roughness: 0.8,
+                emissive: 0x330000,
+                emissiveIntensity: 0.3,
+                metalness: 0.2,
+                transparent: true,
+                opacity: 0.7 // Slightly transparent
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.75;
+            body.castShadow = true;
+            antagonist.add(body);
+
+            // Arms (transparent)
+            const armGeo = new THREE.CylinderGeometry(0.1, 0.12, 1.2, 8);
+            const armMat = new THREE.MeshStandardMaterial({
+                color: 0x1a0000,
+                roughness: 0.8,
+                emissive: 0x330000,
+                emissiveIntensity: 0.3,
+                metalness: 0.2,
+                transparent: true,
+                opacity: 0.7
+            });
+            const leftArm = new THREE.Mesh(armGeo, armMat);
+            leftArm.position.set(-0.45, 0.9, 0);
+            leftArm.rotation.z = 0.3;
+            leftArm.castShadow = true;
+            antagonist.add(leftArm);
+
+            const rightArm = new THREE.Mesh(armGeo, armMat);
+            rightArm.position.set(0.45, 0.9, 0);
+            rightArm.rotation.z = -0.3;
+            rightArm.castShadow = true;
+            antagonist.add(rightArm);
+
+            // Head (more detailed, transparent)
+            const headGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+            const headMat = new THREE.MeshStandardMaterial({
+                color: 0x2a1a1a,
+                roughness: 0.9,
+                emissive: 0x220000,
+                emissiveIntensity: 0.2,
+                transparent: true,
+                opacity: 0.7
+            });
+            const head = new THREE.Mesh(headGeometry, headMat);
+            head.position.y = 1.7;
+            head.castShadow = true;
+            antagonist.add(head);
+
+            antagonist.position.set(-15, 0, -18); // Start in storage room
+
+            // Add larger, more menacing glowing eyes
+            const eyeGeometry = new THREE.SphereGeometry(0.12, 8, 8);
+            const eyeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 2
+            });
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.15, 1.8, 0.3);
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.15, 1.8, 0.3);
+            antagonist.add(leftEye);
+            antagonist.add(rightEye);
+
+            // Add point lights for eye glow
+            const leftEyeLight = new THREE.PointLight(0xff0000, 0.5, 3);
+            leftEyeLight.position.set(-0.15, 1.8, 0.5);
+            antagonist.add(leftEyeLight);
+
+            const rightEyeLight = new THREE.PointLight(0xff0000, 0.5, 3);
+            rightEyeLight.position.set(0.15, 1.8, 0.5);
+            antagonist.add(rightEyeLight);
+
+            // Knife in right hand
+            const knifeHandle = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8);
+            const handleMat = new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                roughness: 0.7
+            });
+            const handle = new THREE.Mesh(knifeHandle, handleMat);
+            handle.position.set(0.6, 0.4, 0.1);
+            handle.rotation.z = -0.5;
+            antagonist.add(handle);
+
+            const knifeBlade = new THREE.BoxGeometry(0.05, 0.4, 0.02);
+            const bladeMat = new THREE.MeshStandardMaterial({
+                color: 0xcccccc,
+                roughness: 0.2,
+                metalness: 0.9,
+                emissive: 0x444444,
+                emissiveIntensity: 0.3
+            });
+            const blade = new THREE.Mesh(knifeBlade, bladeMat);
+            blade.position.set(0.65, 0.65, 0.1);
+            blade.rotation.z = -0.5;
+            antagonist.add(blade);
+
+            scene.add(antagonist);
+
+            antagonist.userData = {
+                state: 'patrol',
+                patrolPoints: [
+                    { x: -15, z: -18 },
+                    { x: -5, z: -10 },
+                    { x: 0, z: 0 },
+                    { x: 5, z: 10 },
+                    { x: -5, z: 10 },
+                    { x: 20, z: -20 },
+                    { x: -30, z: 15 },
+                    { x: 15, z: 30 }
+                ],
+                currentPatrolIndex: 0,
+                speed: 0.06, // FASTER patrol speed (faster than player)
+                detectionRadius: 1000000, // Larger detection
+                attackRadius: 2,
+                lastSeenPlayer: null,
+                chaseSpeed: 0.12, // MUCH FASTER than player chase speed
+                canPhase: false,
+                phaseTimer: 0,
+                phaseCooldown: 5, // Every 5 seconds
+                phaseDuration: 1 // 1 second of phasing
+            };
+        }
+
+        function startGame() {
+            gameState.gameStarted = true;
+            document.getElementById('startScreen').classList.add('hidden');
+            renderer.domElement.requestPointerLock();
+
+            // Show initial message
+            showMessage('Your shift just started. Something feels... wrong.');
+            updateObjective('Find code notes scattered around the store to unlock the storage room.');
+
+            // Activate antagonist after 30 seconds
+            setTimeout(() => {
+                gameState.antagonistActive = true;
+                showMessage('You hear footsteps... Something is in the store with you.', 'danger');
+            }, 30000);
+        }
+
+        function restartGame() {
+            location.reload();
+        }
+
+        // Controls
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+                case 'ArrowLeft': lookLeft = true; break;
+                case 'ArrowRight': lookRight = true; break;
+                case 'ArrowUp': lookUp = true; break;
+                case 'ArrowDown': lookDown = true; break;
+                case 'ShiftLeft':
+                    gameState.isCrouching = true;
+                    camera.position.y = 1.2;
+                    updateStatus();
+                    break;
+                case 'KeyF':
+                    toggleFlashlight();
+                    break;
+                case 'KeyE':
+                    interact();
+                    break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+                case 'ArrowLeft': lookLeft = false; break;
+                case 'ArrowRight': lookRight = false; break;
+                case 'ArrowUp': lookUp = false; break;
+                case 'ArrowDown': lookDown = false; break;
+                case 'ShiftLeft':
+                    gameState.isCrouching = false;
+                    camera.position.y = 1.7;
+                    updateStatus();
+                    break;
+            }
+        }
+
+        function onMouseMove(event) {
+            if (!gameState.gameStarted || gameState.gameEnded) return;
+
+            const movementX = event.movementX || 0;
+            const movementY = event.movementY || 0;
+
+            camera.rotation.y -= movementX * 0.002;
+            camera.rotation.x -= movementY * 0.002;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        }
+
+        function onClick() {
+            // Used for pointer lock
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function toggleFlashlight() {
+            if (gameState.flashlightOn) {
+                // Turn off flashlight
+                gameState.flashlightOn = false;
+                flashlight.intensity = 0;
+                updateStatus();
+            } else {
+                // Try to turn on flashlight
+                if (gameState.flashlightCooldown > 0) {
+                    showMessage(`Flashlight cooling down... ${gameState.flashlightCooldown.toFixed(1)}s`, 'danger');
+                } else {
+                    gameState.flashlightOn = true;
+                    gameState.flashlightTimeRemaining = gameState.flashlightDuration;
+                    flashlight.intensity = 2;
+                    updateStatus();
+                }
+            }
+        }
+
+        function interact() {
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(interactables);
+
+            if (intersects.length > 0 && intersects[0].distance < 3) {
+                const object = intersects[0].object;
+                handleInteraction(object);
+            }
+        }
+
+        function handleInteraction(object) {
+            const userData = object.userData;
+
+            if (userData.type === 'item') {
+                collectItem(object);
+            } else if (userData.type === 'note') {
+                readNote(object);
+            } else if (userData.type === 'codenote') {
+                readCodeNote(object);
+            } else if (userData.type === 'door') {
+                openDoor(object);
+            } else if (userData.type === 'codedoor') {
+                tryCodeDoor(object);
+            } else if (userData.type === 'keypad') {
+                showKeypad();
+            }
+        }
+
+        function collectItem(item) {
+            gameState.inventory.push(item.userData.name);
+
+            // Special handling for different items
+            if (item.userData.name.includes('Key')) {
+                gameState.keysCollected++;
+                showMessage(`Collected ${item.userData.name}!`);
+            }
+
+            scene.remove(item);
+            const index = interactables.indexOf(item);
+            if (index > -1) interactables.splice(index, 1);
+
+            updateInventory();
+        }
+
+        function readNote(note) {
+            gameState.notesRead++;
+            showInteractionDialog(
+                note.userData.content,
+                [
+                    { text: 'Close', action: () => hideInteractionDialog() }
+                ]
+            );
+        }
+
+        function readCodeNote(note) {
+            gameState.notesRead++;
+            const digit = note.userData.digit;
+            const index = note.userData.digitIndex;
+
+            // Add digit to collected digits if not already collected
+            if (!gameState.codeDigits[index]) {
+                gameState.codeDigits[index] = digit;
+                showInteractionDialog(
+                    note.userData.content + '\n\n[CODE DIGIT RECORDED]',
+                    [
+                        { text: 'Close', action: () => hideInteractionDialog() }
+                    ]
+                );
+
+                // Check if all digits collected
+                if (gameState.codeDigits.filter(d => d).length === 4) {
+                    showMessage('All code digits collected! Use the keypad near the storage door.');
+                    updateObjective('Enter code at storage room keypad: ' + gameState.codeDigits.join(''));
+                }
+            } else {
+                showInteractionDialog(
+                    note.userData.content,
+                    [
+                        { text: 'Close', action: () => hideInteractionDialog() }
+                    ]
+                );
+            }
+        }
+
+        function showKeypad() {
+            const collectedCode = gameState.codeDigits.join('');
+            const message = gameState.codeDigits.length === 4 ?
+                `Enter 4-digit code:\n\nCollected digits: ${collectedCode}\n\nEnter code below:` :
+                `Enter 4-digit code:\n\nDigits found: ${gameState.codeDigits.filter(d => d).length}/4\n\nFind all code notes first!`;
+
+            showInteractionDialog(
+                message,
+                [
+                    { text: 'Try Code', action: () => tryStorageCode() },
+                    { text: 'Cancel', action: () => hideInteractionDialog() }
+                ]
+            );
+        }
+
+        function tryStorageCode() {
+            const userCode = gameState.codeDigits.join('');
+
+            if (userCode.length !== 4) {
+                hideInteractionDialog();
+                showMessage('You need to find all 4 code digits first!', 'danger');
+                return;
+            }
+
+            if (userCode === gameState.storageCode) {
+                // Unlock the storage door
+                const storageDoor = interactables.find(obj => obj.userData.type === 'codedoor');
+                if (storageDoor) {
+                    storageDoor.userData.locked = false;
+                    storageDoor.material.color.setHex(0x4a7c59);
+
+                    // Remove door as collision object
+                    const index = walls.indexOf(storageDoor);
+                    if (index > -1) walls.splice(index, 1);
+                }
+
+                hideInteractionDialog();
+                showMessage('Code accepted! Storage room unlocked!');
+                updateObjective('Enter the storage room and find the Exit Key.');
+            } else {
+                hideInteractionDialog();
+                showMessage('Incorrect code!', 'danger');
+            }
+        }
+
+        function tryCodeDoor(door) {
+            if (door.userData.locked) {
+                showMessage('This door requires a code. Use the keypad next to it.', 'danger');
+            } else {
+                showMessage('Door is already unlocked. You can enter.');
+            }
+        }
+
+        function openDoor(door) {
+            if (door.userData.locked) {
+                if (door.userData.requiredKey && gameState.inventory.includes(door.userData.requiredKey)) {
+                    door.userData.locked = false;
+                    door.material.color.setHex(0x4a7c59);
+
+                    // Remove door as collision object
+                    const index = walls.indexOf(door);
+                    if (index > -1) walls.splice(index, 1);
+
+                    showMessage(`Unlocked ${door.userData.name}!`);
+
+                    // Check if this is the exit door
+                    if (door.userData.name === 'Exit Door') {
+                        endGame('escape');
+                    }
+                } else {
+                    showMessage(`${door.userData.name} is locked. Need: ${door.userData.requiredKey}`, 'danger');
+                }
+            } else {
+                door.userData.isOpen = !door.userData.isOpen;
+                showMessage(door.userData.isOpen ? 'Door opened.' : 'Door closed.');
+            }
+        }
+
+        function updateAntagonist(delta) {
+            if (!gameState.antagonistActive || gameState.gameEnded) return;
+
+            const data = antagonist.userData;
+            const playerPos = camera.position;
+            const antagonistPos = antagonist.position;
+
+            // Update phase timer
+            data.phaseTimer += delta;
+            if (data.phaseTimer >= data.phaseCooldown && !data.canPhase) {
+                data.canPhase = true;
+                data.phaseTimer = 0;
+                // Visual effect for phasing
+                antagonist.children.forEach(child => {
+                    if (child.material) {
+                        child.material.transparent = true;
+                        child.material.opacity = 0.5;
+                    }
+                });
+            }
+
+            // End phasing after duration
+            if (data.canPhase && data.phaseTimer >= data.phaseDuration) {
+                data.canPhase = false;
+                data.phaseTimer = 0;
+                // Restore opacity
+                antagonist.children.forEach(child => {
+                    if (child.material) {
+                        child.material.opacity = 1;
+                    }
+                });
+            }
+
+            // Calculate distance to player
+            const distanceToPlayer = Math.sqrt(
+                Math.pow(playerPos.x - antagonistPos.x, 2) +
+                Math.pow(playerPos.z - antagonistPos.z, 2)
+            );
+
+            // Check if player is hiding
+            checkIfHiding();
+
+            // Decide behavior based on detection
+            if (!gameState.isHiding && distanceToPlayer < data.detectionRadius) {
+                // Can see player if flashlight is on or player is close
+                const canDetect = gameState.flashlightOn || distanceToPlayer < 5;
+
+                if (canDetect) {
+                    data.state = 'chase';
+                    data.lastSeenPlayer = { x: playerPos.x, z: playerPos.z };
+                }
+            }
+
+            // Behavior based on state
+            if (data.state === 'chase') {
+                // Chase player
+                const dx = playerPos.x - antagonistPos.x;
+                const dz = playerPos.z - antagonistPos.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+
+                if (distance > 0.5) {
+                    const newX = antagonistPos.x + (dx / distance) * data.chaseSpeed * delta * 60;
+                    const newZ = antagonistPos.z + (dz / distance) * data.chaseSpeed * delta * 60;
+
+                    // Check collision only if NOT phasing
+                    if (data.canPhase) {
+                        // Can pass through walls!
+                        antagonist.position.x = newX;
+                        antagonist.position.z = newZ;
+                    } else {
+                        // Check collision with walls
+                        const testPos = new THREE.Vector3(newX, antagonistPos.y, newZ);
+                        let canMove = true;
+                        for (const wall of walls) {
+                            const box = new THREE.Box3().setFromObject(wall);
+                            box.expandByScalar(0.5);
+                            if (box.containsPoint(testPos)) {
+                                canMove = false;
+                                break;
+                            }
+                        }
+                        if (canMove) {
+                            antagonist.position.x = newX;
+                            antagonist.position.z = newZ;
+                        }
+                    }
+
+                    // Face player
+                    antagonist.rotation.y = Math.atan2(dx, dz);
+                }
+
+                // Attack if close enough
+                if (distanceToPlayer < data.attackRadius) {
+                    attackPlayer();
+                }
+
+                // Return to patrol if player escaped
+                if (distanceToPlayer > data.detectionRadius * 1.5) {
+                    data.state = 'patrol';
+                }
+            } else {
+                // Patrol
+                const target = data.patrolPoints[data.currentPatrolIndex];
+                const dx = target.x - antagonistPos.x;
+                const dz = target.z - antagonistPos.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+
+                if (distance > 0.5) {
+                    antagonist.position.x += (dx / distance) * data.speed * delta * 60;
+                    antagonist.position.z += (dz / distance) * data.speed * delta * 60;
+                    antagonist.rotation.y = Math.atan2(dx, dz);
+                } else {
+                    data.currentPatrolIndex = (data.currentPatrolIndex + 1) % data.patrolPoints.length;
+                }
+            }
+        }
+
+        function checkIfHiding() {
+            const playerPos = camera.position;
+            gameState.isHiding = false;
+
+            for (const spot of hidingSpots) {
+                const distance = Math.sqrt(
+                    Math.pow(playerPos.x - spot.x, 2) +
+                    Math.pow(playerPos.z - spot.z, 2)
+                );
+
+                if (distance < spot.radius && gameState.isCrouching) {
+                    gameState.isHiding = true;
+                    break;
+                }
+            }
+
+            updateStatus();
+        }
+
+        function attackPlayer() {
+            if (gameState.gameEnded) return;
+
+            // JUMPSCARE EFFECT!
+            triggerJumpscare();
+
+            gameState.health -= 100;
+            updateHUD();
+
+            if (gameState.health <= 0) {
+                endGame('death');
+            } else {
+                showMessage('You\'ve been attacked! Run and hide!', 'danger');
+
+                // Push player back
+                const dx = camera.position.x - antagonist.position.x;
+                const dz = camera.position.z - antagonist.position.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                camera.position.x += (dx / distance) * 2;
+                camera.position.z += (dz / distance) * 2;
+            }
+        }
+
+        function triggerJumpscare() {
+            // Screen flash red
+            const flash = document.createElement('div');
+            flash.style.position = 'fixed';
+            flash.style.top = '0';
+            flash.style.left = '0';
+            flash.style.width = '100%';
+            flash.style.height = '100%';
+            flash.style.background = 'red';
+            flash.style.opacity = '0';
+            flash.style.zIndex = '999';
+            flash.style.pointerEvents = 'none';
+            flash.style.transition = 'opacity 0.1s';
+            document.body.appendChild(flash);
+
+            // Flash sequence
+            setTimeout(() => flash.style.opacity = '0.8', 10);
+            setTimeout(() => flash.style.opacity = '0', 100);
+            setTimeout(() => flash.style.opacity = '0.8', 200);
+            setTimeout(() => flash.style.opacity = '0', 300);
+            setTimeout(() => flash.style.opacity = '0.6', 400);
+            setTimeout(() => {
+                flash.style.opacity = '0';
+                setTimeout(() => document.body.removeChild(flash), 300);
+            }, 600);
+
+            // Camera shake
+            const originalX = camera.rotation.x;
+            const originalY = camera.rotation.y;
+            let shakeTime = 0;
+            const shakeInterval = setInterval(() => {
+                camera.rotation.x = originalX + (Math.random() - 0.5) * 0.3;
+                camera.rotation.y = originalY + (Math.random() - 0.5) * 0.3;
+                shakeTime += 50;
+                if (shakeTime >= 500) {
+                    clearInterval(shakeInterval);
+                    camera.rotation.x = originalX;
+                    camera.rotation.y = originalY;
+                }
+            }, 50);
+
+            // Zoom antagonist closer temporarily (visual effect)
+            const originalPos = antagonist.position.clone();
+            const dirToPlayer = new THREE.Vector3()
+                .subVectors(camera.position, antagonist.position)
+                .normalize();
+            antagonist.position.add(dirToPlayer.multiplyScalar(0.5));
+
+            setTimeout(() => {
+                antagonist.position.copy(originalPos);
+            }, 300);
+        }
+
+        function endGame(ending) {
+            gameState.gameEnded = true;
+            const endScreen = document.getElementById('endScreen');
+            const endTitle = document.getElementById('endTitle');
+            const endMessage = document.getElementById('endMessage');
+
+            if (ending === 'escape') {
+                endTitle.textContent = 'YOU ESCAPED!';
+                endTitle.style.color = '#5D5CDE';
+                endMessage.textContent = 'You managed to unlock the exit and escape the convenience store. As you run into the night, you hear a bloodcurdling scream behind you. You never look back. Whatever haunted that store, you left it behind... you hope.';
+            } else if (ending === 'death') {
+                endTitle.textContent = 'GAME OVER';
+                endTitle.style.color = '#ff6b6b';
+                endMessage.textContent = 'The darkness consumed you. Your night shift has ended... permanently. The store claims another victim, and the mystery remains unsolved.';
+            }
+
+            endScreen.classList.add('visible');
+            document.exitPointerLock();
+        }
+
+        function showMessage(text, type = 'info') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.style.borderColor = type === 'danger' ? '#ff6b6b' : '#5D5CDE';
+            messageEl.classList.add('visible');
+
+            setTimeout(() => {
+                messageEl.classList.remove('visible');
+            }, 4000);
+        }
+
+        function showInteractionDialog(text, buttons) {
+            const dialog = document.getElementById('interaction');
+            const textEl = document.getElementById('interactionText');
+            const buttonsEl = document.getElementById('interactionButtons');
+
+            textEl.textContent = text;
+            buttonsEl.innerHTML = '';
+
+            buttons.forEach(btn => {
+                const button = document.createElement('button');
+                button.textContent = btn.text;
+                button.onclick = btn.action;
+                buttonsEl.appendChild(button);
+            });
+
+            dialog.classList.add('visible');
+            document.exitPointerLock();
+        }
+
+        function hideInteractionDialog() {
+            document.getElementById('interaction').classList.remove('visible');
+            renderer.domElement.requestPointerLock();
+        }
+
+        function updateInventory() {
+            const itemsEl = document.getElementById('items');
+            itemsEl.innerHTML = '';
+
+            gameState.inventory.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'item';
+                itemEl.textContent = item;
+                itemsEl.appendChild(itemEl);
+            });
+        }
+
+        function updateObjective(text) {
+            document.getElementById('objectiveText').textContent = text;
+        }
+
+        function updateStatus() {
+            let status = 'Normal';
+            if (gameState.isHiding) status = 'Hidden';
+            else if (gameState.isCrouching) status = 'Crouching';
+            else if (gameState.flashlightOn) status = 'Flashlight On';
+
+            document.getElementById('status').textContent = status;
+        }
+
+        function updateHUD() {
+            document.getElementById('health').textContent = gameState.health;
+
+            // Update flashlight bar and status
+            if (gameState.flashlightOn) {
+                const percentage = (gameState.flashlightTimeRemaining / gameState.flashlightDuration) * 100;
+                document.getElementById('flashlightBar').style.width = percentage + '%';
+                document.getElementById('flashlightBar').style.background = 'linear-gradient(90deg, #ffd93d, #ffaa00)';
+                document.getElementById('flashlightStatus').textContent = 'ON';
+                document.getElementById('flashlightStatus').style.color = '#ffd93d';
+            } else if (gameState.flashlightCooldown > 0) {
+                const percentage = ((gameState.flashlightMaxCooldown - gameState.flashlightCooldown) / gameState.flashlightMaxCooldown) * 100;
+                document.getElementById('flashlightBar').style.width = percentage + '%';
+                document.getElementById('flashlightBar').style.background = 'linear-gradient(90deg, #666, #999)';
+                document.getElementById('flashlightStatus').textContent = gameState.flashlightCooldown.toFixed(1) + 's';
+                document.getElementById('flashlightStatus').style.color = '#ff6b6b';
+            } else {
+                document.getElementById('flashlightBar').style.width = '100%';
+                document.getElementById('flashlightBar').style.background = 'linear-gradient(90deg, #4ecdc4, #95e1d3)';
+                document.getElementById('flashlightStatus').textContent = 'READY';
+                document.getElementById('flashlightStatus').style.color = '#4ecdc4';
+            }
+        }
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!gameState.gameStarted || gameState.gameEnded) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+
+            // Update camera rotation with arrow keys
+            const lookSpeed = 2.0;
+            if (lookLeft) camera.rotation.y += lookSpeed * delta;
+            if (lookRight) camera.rotation.y -= lookSpeed * delta;
+            if (lookUp) camera.rotation.x += lookSpeed * delta;
+            if (lookDown) camera.rotation.x -= lookSpeed * delta;
+
+            // Clamp vertical rotation
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+            // Update movement
+            const speed = gameState.isCrouching ? 3 : 5;
+            const moveSpeed = speed * delta;
+
+            const newPosition = camera.position.clone();
+
+            // Forward/backward movement
+            if (moveForward) {
+                newPosition.x -= Math.sin(camera.rotation.y) * moveSpeed;
+                newPosition.z -= Math.cos(camera.rotation.y) * moveSpeed;
+            }
+            if (moveBackward) {
+                newPosition.x += Math.sin(camera.rotation.y) * moveSpeed;
+                newPosition.z += Math.cos(camera.rotation.y) * moveSpeed;
+            }
+
+            // Left/right movement
+            if (moveLeft) {
+                newPosition.x -= Math.cos(camera.rotation.y) * moveSpeed;
+                newPosition.z += Math.sin(camera.rotation.y) * moveSpeed;
+            }
+            if (moveRight) {
+                newPosition.x += Math.cos(camera.rotation.y) * moveSpeed;
+                newPosition.z -= Math.sin(camera.rotation.y) * moveSpeed;
+            }
+
+            // Collision detection
+            let canMove = true;
+            for (const wall of walls) {
+                const box = new THREE.Box3().setFromObject(wall);
+                box.expandByScalar(0.5);
+                if (box.containsPoint(newPosition)) {
+                    canMove = false;
+                    break;
+                }
+            }
+
+            if (canMove) {
+                camera.position.copy(newPosition);
+            }
+
+            // Update flashlight
+            if (gameState.flashlightOn) {
+                gameState.flashlightTimeRemaining -= delta;
+                if (gameState.flashlightTimeRemaining <= 0) {
+                    gameState.flashlightTimeRemaining = 0;
+                    gameState.flashlightOn = false;
+                    gameState.flashlightCooldown = gameState.flashlightMaxCooldown;
+                    flashlight.intensity = 0;
+                    showMessage('Flashlight overheated! Cooling down...', 'danger');
+                }
+                updateHUD();
+            } else if (gameState.flashlightCooldown > 0) {
+                gameState.flashlightCooldown -= delta;
+                if (gameState.flashlightCooldown < 0) {
+                    gameState.flashlightCooldown = 0;
+                }
+                updateHUD();
+            }
+
+            flashlight.position.copy(camera.position);
+            const flashlightDirection = new THREE.Vector3(0, 0, -1);
+            flashlightDirection.applyQuaternion(camera.quaternion);
+            flashlight.target.position.copy(camera.position).add(flashlightDirection);
+
+            // Update antagonist
+            updateAntagonist(delta);
+
+            // Flicker lights with more variation
+            scene.children.forEach(child => {
+                if (child instanceof THREE.PointLight && child.userData.baseIntensity) {
+                    const flickerAmount = child.userData.flickerAmount || 0.1;
+                    const flicker = Math.sin(time * child.userData.flickerSpeed) * flickerAmount;
+                    const randomFlicker = (Math.random() - 0.5) * 0.05;
+                    child.intensity = child.userData.baseIntensity + flicker + randomFlicker;
+                }
+            });
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+
+        // Start when page is fully loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            init();
+        });
+    </script>
+</body>
+</html>
+
+
